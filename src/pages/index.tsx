@@ -7,6 +7,7 @@ import { SignInButton, useUser } from "@clerk/nextjs";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import Image from "next/image";
+import { LoadingPage, LoadingSpinner } from "~/components/loading";
 
 dayjs.extend(relativeTime);
 
@@ -27,7 +28,7 @@ const PostView = (props: PostWithUser) => {
           <h2 className="">@{author.username}</h2>·
           <div className="font-thin">{dayjs(post.createdAt).fromNow()}</div>
         </div>
-        <p className="">{post.content}</p>
+        <p className="text-xl">{post.content}</p>
       </div>
     </div>
   );
@@ -59,22 +60,38 @@ const CreatePostWizard = () => {
   );
 };
 
-const Home: NextPage = () => {
-  const { data } = api.posts.getAll.useQuery();
-  const { isLoaded, isSignedIn } = useUser();
+const Feed = () => {
+  const { data, isLoading } = api.posts.getAll.useQuery();
 
-  if (!isLoaded) {
+  if (isLoading) {
     return (
-      <div>
-        <h1>Loading...</h1>
+      <div className="mx-auto w-fit">
+        <LoadingPage />
       </div>
     );
   }
 
   if (!data) {
+    return <div> No posts yet</div>;
+  }
+
+  return (
+    <div className="mt-4 ">
+      {data?.map((postFull) => (
+        <PostView key={postFull.post.id} {...postFull} />
+      ))}
+    </div>
+  );
+};
+
+const Home: NextPage = () => {
+  const { isLoaded, isSignedIn } = useUser();
+  // Start fetching posts asap
+  api.posts.getAll.useQuery();
+  if (!isLoaded) {
     return (
       <div>
-        <h1>No User Found</h1>
+        <LoadingPage />
       </div>
     );
   }
@@ -99,11 +116,7 @@ const Home: NextPage = () => {
             )}
           </div>
 
-          <div className="mt-4 ">
-            {data?.map((postFull) => (
-              <PostView key={postFull.post.id} {...postFull} />
-            ))}
-          </div>
+          <Feed />
         </div>
       </main>
     </>
