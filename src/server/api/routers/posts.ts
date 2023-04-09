@@ -14,9 +14,10 @@ import { filterUserForClient } from "~/server/helpers/filterUserForClient";
 import type { Post } from "@prisma/client";
 
 const addUserDataToPosts = async (posts: Post[]) => {
+  const userId = posts.map((post) => post.authorId);
   const users = (
     await clerkClient.users.getUserList({
-      userId: posts.map((post) => post.authorId),
+      userId,
       limit: 100,
     })
   ).map(filterUserForClient);
@@ -24,17 +25,29 @@ const addUserDataToPosts = async (posts: Post[]) => {
   return posts.map((post) => {
     const author = users.find((user) => user.id === post.authorId);
 
-    if (!author || !author.username) {
+    if (!author) {
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
-        message: "Author not found",
+        message: `Author for post not found. POST ID: ${post.id}, USER ID: ${post.authorId}`,
       });
     }
+
+    if (!author.username) {
+      // user the ExternalUsername
+      if (!author.externalUsername) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `Author has no GitHub Account: ${author.id}`,
+        });
+      }
+      author.username = author.externalUsername!;
+    }
+
     return {
       post,
       author: {
         ...author,
-        username: author.username,
+        username: author.username ?? "(username not found)",
       },
     };
   });
@@ -64,6 +77,30 @@ export const postsRouter = createTRPCRouter({
 
     return addUserDataToPosts(posts);
   }),
+  getById: publicProcedure
+    .input(
+      z.object({
+        id: z.string(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      console.log("gettinbg posts", input.id);
+      const posts = await ctx.prisma.post.findUnique({
+        where: {
+          id: input.id,
+        },
+      });
+
+      if (!posts) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Post not found. POST ID: ${input.id}`,
+        });
+      }
+      console.log("posts", posts);
+
+      return (await addUserDataToPosts([posts]))[0];
+    }),
 
   getPostsByUserId: publicProcedure
     .input(
