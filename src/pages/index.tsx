@@ -7,8 +7,9 @@ import { SignInButton, SignOutButton, useUser } from "@clerk/nextjs";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import Image from "next/image";
-import { LoadingPage } from "~/components/loading";
+import { LoadingPage, LoadingSpinner } from "~/components/loading";
 import { useState } from "react";
+import { toast } from "react-hot-toast";
 
 dayjs.extend(relativeTime);
 
@@ -25,7 +26,7 @@ const PostView = (props: PostWithUser) => {
         height={56}
       />
       <div className="flex flex-col">
-        <div className="flex gap-1  text-slate-400">
+        <div className="flex gap-1  text-slate-300">
           <h2 className="">@{author.username}</h2>·
           <div className="font-thin">{dayjs(post.createdAt).fromNow()}</div>
         </div>
@@ -45,6 +46,14 @@ const CreatePostWizard = () => {
       setChirp("");
       void ctx.posts.getAll.invalidate();
     },
+    onError: (err) => {
+      const errorMesage = err.data?.zodError?.fieldErrors.content;
+      if (errorMesage && errorMesage[0]) {
+        toast.error(errorMesage[0]);
+      } else {
+        toast.error("Failed to post! Please try again later");
+      }
+    },
   });
 
   if (!user) return null;
@@ -63,14 +72,34 @@ const CreatePostWizard = () => {
             height={56}
           />
           <input
-            className="w-full grow rounded border border-slate-400 bg-transparent p-1 px-2 outline-none"
+            className="w-full grow rounded bg-transparent p-1 px-2 outline-none"
             placeholder="Chirp somethin..."
             value={chirp}
             type="text"
             disabled={isPosting}
             onChange={(e) => setChirp(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                if (chirp !== "") {
+                  mutate({ content: chirp });
+                }
+              }
+            }}
           />
-          <button onClick={() => mutate({ content: chirp })}>Submit</button>
+          {chirp !== "" && !isPosting && (
+            <button
+              onClick={() => mutate({ content: chirp })}
+              disabled={isPosting}
+            >
+              Submit
+            </button>
+          )}
+          {isPosting && (
+            <div>
+              <LoadingSpinner size={20} />
+            </div>
+          )}
         </div>
       </div>
     </div>
