@@ -1,6 +1,27 @@
 import type { GetStaticProps, NextPage } from "next";
 import Head from "next/head";
+import { PostView } from "~/components/PostView";
 import { api } from "~/utils/api";
+
+const ProfileFeed = (props: { userId: string }) => {
+  const { data: posts, isLoading } = api.posts.getPostsByUserId.useQuery({
+    userId: props.userId,
+  });
+
+  if (isLoading) {
+    return <LoadingPage />;
+  }
+
+  if (!posts) return <div> No posts yet</div>;
+
+  return (
+    <div className="flex flex-col">
+      {posts.map((fullPost) => (
+        <PostView key={fullPost.post.id} {...fullPost} />
+      ))}
+    </div>
+  );
+};
 
 const SingleProfilePage: NextPage<{ username: string }> = ({ username }) => {
   const { data: user } = api.profile.getUserByUsername.useQuery({
@@ -19,6 +40,9 @@ const SingleProfilePage: NextPage<{ username: string }> = ({ username }) => {
       </Head>
       <PageLayout>
         <div className="relative h-36 bg-slate-600">
+          <Link href="/" passHref>
+            <div className="ml-4 pt-4"> {"<-"} Back</div>
+          </Link>
           <Image
             src={user.profileImageUrl}
             alt={`${user.username!}'s profile image`}
@@ -30,6 +54,8 @@ const SingleProfilePage: NextPage<{ username: string }> = ({ username }) => {
         <div className="h-[64px]"></div>
         <div className="p-4 text-2xl font-bold">{`@${user.username!}`}</div>
         <div className="border-b border-slate-400"></div>
+
+        <ProfileFeed userId={user.id} />
       </PageLayout>
     </>
   );
@@ -41,6 +67,8 @@ import { createServerSideHelpers } from "@trpc/react-query/server";
 import { appRouter } from "~/server/api/root";
 import { PageLayout } from "~/components/layout";
 import Image from "next/image";
+import { LoadingPage } from "~/components/loading";
+import Link from "next/link";
 
 export const getStaticProps: GetStaticProps = async (context) => {
   const ssg = createServerSideHelpers({
