@@ -2,12 +2,13 @@ import { type NextPage } from "next";
 import Head from "next/head";
 import { api } from "~/utils/api";
 import type { RouterOutputs } from "~/utils/api";
-import { SignInButton, useUser } from "@clerk/nextjs";
+import { SignInButton, SignOutButton, useUser } from "@clerk/nextjs";
 
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import Image from "next/image";
-import { LoadingPage, LoadingSpinner } from "~/components/loading";
+import { LoadingPage } from "~/components/loading";
+import { useState } from "react";
 
 dayjs.extend(relativeTime);
 
@@ -28,34 +29,50 @@ const PostView = (props: PostWithUser) => {
           <h2 className="">@{author.username}</h2>·
           <div className="font-thin">{dayjs(post.createdAt).fromNow()}</div>
         </div>
-        <p className="text-xl">{post.content}</p>
+        <p className="text-2xl">{post.content}</p>
       </div>
     </div>
   );
 };
 
 const CreatePostWizard = () => {
+  const [chirp, setChirp] = useState("");
   const { user } = useUser();
+
+  const ctx = api.useContext();
+  const { mutate, isLoading: isPosting } = api.posts.create.useMutation({
+    onSuccess: () => {
+      setChirp("");
+      void ctx.posts.getAll.invalidate();
+    },
+  });
 
   if (!user) return null;
   return (
-    <div className="flex w-full items-center justify-between ">
-      <div className="flex w-full items-center gap-4">
-        <Image
-          src={user.profileImageUrl}
-          alt="Profile image"
-          className="h-14 w-14 rounded-full"
-          width={56}
-          height={56}
-        />
-        <input
-          className="w-full grow rounded border border-slate-400 bg-transparent p-1 px-2 outline-none"
-          placeholder="Chirp somethin..."
-        />
+    <div>
+      <div className="mb-4 ml-auto w-fit">
+        <SignOutButton />
       </div>
-      {/* <div>
-    <SignOutButton />
-  </div> */}
+      <div className="flex w-full items-center justify-between ">
+        <div className="flex w-full items-center gap-4">
+          <Image
+            src={user.profileImageUrl}
+            alt="Profile image"
+            className="h-14 w-14 rounded-full"
+            width={56}
+            height={56}
+          />
+          <input
+            className="w-full grow rounded border border-slate-400 bg-transparent p-1 px-2 outline-none"
+            placeholder="Chirp somethin..."
+            value={chirp}
+            type="text"
+            disabled={isPosting}
+            onChange={(e) => setChirp(e.target.value)}
+          />
+          <button onClick={() => mutate({ content: chirp })}>Submit</button>
+        </div>
+      </div>
     </div>
   );
 };
